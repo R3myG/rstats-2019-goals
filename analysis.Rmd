@@ -1,0 +1,61 @@
+---
+title: "Analysis"
+author: "Jason Baik"
+date: "12/31/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#### Import all tweets that contains three words: #rstats, goals, 2019
+
+```{r, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(rtweet)
+library(tidytext)
+theme_set(theme_light())
+
+rstats_goals <- search_tweets(
+  "#rstats goals 2019", n = 18000, include_rts = FALSE
+)
+```
+
+#### Select relevant column and clean data
+```{r}
+goals_raw <- rstats_goals %>% 
+  select(text) %>% 
+  remove_rownames()
+
+# Get rid of all non-ASCII characters
+# Get rid of 2019, #rstats, goals
+# Get rid of \n
+# Get rid of periods, numbers, https (urls), amp, tco
+goals <- goals_raw %>% 
+  mutate(text = str_replace_all(text, "[^\x01-\x7F]", ""),
+         text = str_replace_all(text, "2019|goals|#rstats|#Rstats|#RStats", ""),
+         text = str_replace_all(text, "\n", ""),
+         text = str_replace_all(text, "\\.|[[:digit:]]+", ""),
+         text = str_replace_all(text, "https|amp|tco", ""))
+```
+
+#### Use `tidytext` functions and count twenty most frequent words
+```{r}
+ goals %>%  
+  unnest_tokens(word, text) %>% 
+  anti_join(stop_words, by = "word") %>% 
+  count(word, sort = TRUE) %>%
+  head(20) %>%
+  mutate(word = str_to_title(word),
+         word = reorder(word, n)) %>% 
+  ggplot(aes(x = word, y = n, fill = word)) +
+  geom_col(show.legend = FALSE) +
+  coord_flip() +
+  labs(x = "Words",
+       y = "Count",
+       caption = "Data from rtweet package by @kearneymw\nViz by @jsonbaik") +
+  ggtitle("Top 20 Words used in \"2019 #rstats goals\" Tweets",
+          subtitle = "#1 \"Learn\" #2 \"Data\" #3 \"Blog\"")
+```
+
